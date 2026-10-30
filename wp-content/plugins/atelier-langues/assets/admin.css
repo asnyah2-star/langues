@@ -1,0 +1,10 @@
+.atelier-langues-table { margin-top: 1rem; table-layout: fixed; }
+.atelier-langues-table caption { padding: 1rem; text-align: left; font-weight: bold; }
+.atelier-langues-table th:first-child { width: 20%; }
+.atelier-langues-table textarea { resize: vertical; }
+@media (max-width: 782px) {
+    .atelier-langues-table, .atelier-langues-table tbody, .atelier-langues-table tr,
+    .atelier-langues-table td, .atelier-langues-table th { display: block; width: auto; }
+    .atelier-langues-table thead { display: none; }
+    .atelier-langues-table .screen-reader-text { position: static; clip-path: none; width: auto; height: auto; display: block; margin: 0; }
+}
