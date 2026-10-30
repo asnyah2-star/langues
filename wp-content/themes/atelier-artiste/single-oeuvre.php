@@ -7,8 +7,9 @@
             $discipline_url = get_term_link($discipline);
             if (is_wp_error($discipline_url)) { continue; }
             $name = $discipline->name;
-            if (function_exists('atelier_langues_current') && 'en' === atelier_langues_current()) {
-                $name = get_term_meta($discipline->term_id, '_atelier_langues_name_en', true) ?: $name;
+            if (function_exists('atelier_langues_current') && atelier_langues_source() !== atelier_langues_current()) {
+                $translated = get_term_meta($discipline->term_id, '_atelier_langues_name_en', true);
+                $name = function_exists('atelier_langues_native_text') ? atelier_langues_native_text($translated, $name) : $name;
             }
             ?>
             <a class="text-link" href="<?php echo esc_url($discipline_url); ?>">← <?php echo esc_html($name); ?></a>

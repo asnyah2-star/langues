@@ -70,7 +70,7 @@ if ($admins) {
     ob_start();
     atelier_langues_render_admin_page();
     $html = ob_get_clean();
-    atelier_test(false !== strpos($html, 'name="english[acf][field_atelier_accueil_intro]"'), 'Champs imbriqués du formulaire');
+    atelier_test(false !== strpos($html, 'Modifier les champs ACF') && false === strpos($html, 'name="english[acf]'), 'Traductions ACF disponibles dans leur fiche sans formulaire doublonné');
     atelier_test(false !== strpos($html, 'name="_wpnonce"'), 'Nonce présent');
 }
 // Traduction de menu simulée : pas d'écriture dans les menus existants.
@@ -107,7 +107,7 @@ atelier_test('Présentation artiste' === __('L’artiste', 'atelier-artiste'), '
 ob_start();
 atelier_langues_theme_form();
 $theme_form = ob_get_clean();
-atelier_test(false !== strpos($theme_form, 'french[theme][' . md5('L’artiste') . ']'), 'Formulaire de textes séparé');
+atelier_test(false !== strpos($theme_form, 'translations[fr][theme][' . md5('L’artiste') . ']'), 'Formulaire de textes séparé');
 remove_filter('pre_option_atelier_langues_theme_strings', $theme_override);
 $term_override = function ($value, $id, $key) {
     return 987654 === (int) $id && '_atelier_langues_name_en' === $key ? array('Visual Arts') : $value;
@@ -139,4 +139,28 @@ $wp_query->queried_object->term_id = 987654;
 $wp_query->queried_object->taxonomy = 'category';
 atelier_test('Catégorie' === apply_filters('single_term_title', 'Catégorie'), 'Autres taxonomies intactes');
 remove_filter('get_term_metadata', $term_override, 10);
+
+// Les libellés déjà réunis en multi doivent rester lisibles sur le site.
+$packed_menu = function ($value, $object_id, $key) {
+    return 987654 === (int) $object_id && '_atelier_langues_menu_en' === $key ? array(atelier_langues_multi_encode(array('fr' => 'Accueil', 'en' => 'Home'))) : $value;
+};
+add_filter('get_post_metadata', $packed_menu, 10, 3);
+set_query_var('atelier_lang', 'en');
+atelier_test('Home' === atelier_langues_menu_label($menu_item)->title, 'Menu au format multi');
+remove_filter('get_post_metadata', $packed_menu, 10);
+$packed_term = function ($value, $term_id, $key) {
+    if (987654 !== (int) $term_id) { return $value; }
+    if ('_atelier_langues_name_en' === $key) { return array(atelier_langues_multi_encode(array('fr' => 'Arts plastiques', 'en' => 'Visual Arts'))); }
+    if ('_atelier_langues_description_en' === $key) { return array(atelier_langues_multi_encode(array('fr' => 'Description', 'en' => '<p>English description</p>'))); }
+    return $value;
+};
+add_filter('get_term_metadata', $packed_term, 10, 3);
+$wp_query->queried_object->taxonomy = 'discipline';
+atelier_test('Visual Arts' === apply_filters('single_term_title', 'Arts plastiques'), 'Nom de discipline au format multi');
+atelier_test(false !== strpos(apply_filters('term_description', 'Description', 987654, 'discipline'), 'English description'), 'Description de discipline traduite');
+remove_filter('get_term_metadata', $packed_term, 10);
+$packed_theme = function () { return array(md5('Technique') => atelier_langues_multi_encode(array('fr' => 'Technique', 'en' => 'Method'))); };
+add_filter('pre_option_atelier_langues_theme_strings', $packed_theme);
+atelier_test('Method' === __('Technique', 'atelier-artiste'), 'Libellé du thème au format multi');
+remove_filter('pre_option_atelier_langues_theme_strings', $packed_theme);
 echo $checks . ' vérifications réussies (aucune traduction enregistrée).' . PHP_EOL;

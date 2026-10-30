@@ -1,48 +1,61 @@
-=== Atelier Langues ===
+=== Langues ===
 Requires PHP: 7.4
-Stable tag: 0.2.0
-
-== Point de reprise — 29 octobre 2026 ==
-
-La première version bilingue fonctionne en local. La prochaine étape est la
-recette des enregistrements et des interactions, puis leur amélioration.
-39 contrôles automatisés réussis ; syntaxe PHP et JavaScript vérifiée.
-Cela ne valide pas encore les formulaires réels, le mobile ou la production.
-
-Quatre modules sont chargés : content.php, languages.php, admin.php et
-site-settings.php. Le dernier ajoute Réglages du site : logo du menu,
-e-mail, liens sociaux et pied de page FR/EN, avec les stockages existants.
-Les logos de l’accueil et de Contact se règlent sur leurs pages.
-Créations ouvre les disciplines ; /oeuvres/ redirige vers l’accueil.
-
-La détection est désactivée par défaut dans le code, mais elle est actuellement
-activée sur cette installation. URL explicite > choix mémorisé > navigateur.
-Le catalogue contient maintenant 22 textes fixes ; les deux libellés
-Agrandir l’image / Fermer l’image n’ont pas encore de traduction anglaise.
-
-Priorités : fiabiliser les sauvegardes incomplètes et concurrentes, tester les
-formulaires et les droits, relire les traductions, puis valider mobile/clavier.
-18 images ont un texte alternatif vide : décider lesquelles sont informatives
-avant de les décrire. L’anglais des métadonnées d’images reste à développer.
-
-Lire d’abord la synthèse du 29 octobre en tête de NOTES.md, puis la fiche
-FICHE-STAGE-LANGUES.md à la racine. AUDIT.md conserve l’audit historique.
+Stable tag: 0.4.0
 
 == Fonctionnement ==
 
-Extension locale français/anglais, sans API payante.
+Extension maison multilingue, avec traduction manuelle et sans API payante.
+Une seule zone de saisie visible par texte, un onglet par langue configurée.
 
-Ouvrir Réglages > Atelier Langues pour saisir les traductions côte à côte.
-Les contenus français existants restent la référence ; médias et dates sont partagés.
-Cocher la disponibilité anglaise après relecture. Un champ anglais vide conserve le français.
+== Configuration réutilisable ==
 
-URL préfixées /fr/ et /en/, slugs communs dans cette première version.
-Détection navigateur désactivée initialement et activable dans les réglages.
+atelier_langues_languages(), dans atelier-langues.php, contient la liste unique
+des langues. FR/EN sont actives ; décommenter les exemples NL, ES ou RU pour
+les ajouter. Onglets, formulaires, URL et détection suivent cette liste.
+La première langue correspond aux contenus natifs et sert de secours.
+Ne pas changer la langue source d’un site existant sans migration des contenus.
+Sur un autre site, adapter également les noms ACF et le catalogue du thème.
 
-Lire AUDIT.md pour les limites, les vérifications effectuées et les tests manuels.
-Les libellés des menus se traduisent dans Apparence > Menus, champ Libellé anglais.
-Les libellés fixes recensés se traduisent dans Réglages > Atelier Langues > Textes du thème.
-Le nom anglais des disciplines se saisit dans Créations > Disciplines > Modifier.
-Le sélecteur FR/EN est proposé sur leur archive si le nom anglais est renseigné.
-Les descriptions des disciplines et métadonnées des images ne sont pas encore traduites.
-Le plugin n'est pas encore validé pour une mise en production.
+L’encodeur reçoit un tableau code => texte et produit multi_CODE pour chaque
+langue. Les anciennes valeurs FR/EN restent lisibles. Une langue désactivée
+garde ses textes enregistrés ; ses URL ne sont plus actives.
+
+Les textes ACF de l’accueil, d’À propos, de Contact, du footer et la technique
+des œuvres se traduisent directement dans leur fiche. Les langues sont
+réunies dans la valeur du champ avec multi et multi_CODE.
+La cliente ne saisit pas ces balises. La liste des champs figure dans
+atelier_langues_multi_fields(), dans atelier-langues.php.
+
+Les anciens textes sont repris à l’ouverture, puis assemblés à l’enregistrement.
+Les anciennes traductions ne sont pas supprimées. Les images, l’e-mail,
+les liens, dates et dimensions restent communs.
+
+== Autres traductions ==
+
+Réglages > Langues : titres, contenus et extraits WordPress, disponibilité
+de chaque traduction des pages/créations et textes fixes du thème. Leurs champs natifs
+WordPress sont conservés ; les textes ACF ne sont plus dupliqués dans cet écran.
+
+Apparence > Menus : libellés à onglets.
+Créations > Disciplines > Modifier : nom et description à onglets.
+Réglages du site : logo, coordonnées, liens et pied de page à onglets.
+
+== Langue du visiteur ==
+
+URL de langue explicite prioritaire, puis choix mémorisé, puis préférences du
+navigateur. La langue source sert de secours si nécessaire. La détection est active
+sur cette installation et reste réglable dans Langues.
+Pour une page, chaque traduction nécessite un titre et le statut relu/disponible.
+
+== Vérification et limites ==
+
+94 contrôles multi et 43 contrôles généraux passent. La recette visuelle et
+les sauvegardes réelles depuis WordPress restent à effectuer avec la cliente.
+Pas de migration destructive automatique. Git ne sauvegarde pas la base.
+Le retour à l’ancien code ne reconvertit pas les valeurs multi enregistrées.
+
+Les slugs anglais et la traduction indépendante des textes alternatifs et
+légendes des médias restent hors périmètre. Production non encore validée.
+
+Lire NOTES.md pour les repères techniques et FICHE-STAGE-LANGUES.md à la racine
+pour l’explication au responsable. AUDIT.md conserve l’audit historique.

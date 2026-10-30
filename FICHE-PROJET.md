@@ -1,5 +1,10 @@
 # Fiche de suivi — Site de Tamara Szefer
 
+## Mise à jour — 30 octobre 2026
+
+Langues 0.4.0 : onglets pour les langues définies dans atelier_langues_languages(), dans le fichier principal. FR/EN restent actives ; NL, ES et RU sont proposées en exemples commentés. Les textes ACF se traduisent dans leur fiche et sont réunis au format multi à l’enregistrement. Menus, disciplines, footer, textes fixes, URL et navigateur utilisent cette configuration commune. Les titres/contenus WordPress restent compatibles avec l’éditeur natif et se traduisent dans Réglages → Langues. 94 contrôles multi et 43 contrôles généraux passent. Lire FICHE-STAGE-LANGUES.md et les NOTES.md du plugin pour l’état actuel. Les sections suivantes conservent les décisions historiques et peuvent décrire un fonctionnement remplacé.
+
+
 ## Repère actuel — 29 octobre 2026
 
 Ce fichier conserve l’historique des choix ; plusieurs consignes anciennes ci-dessous ont été remplacées. Pour la reprise actuelle, lire d’abord `wp-content/plugins/atelier-langues/NOTES.md` et `FICHE-STAGE-LANGUES.md`.

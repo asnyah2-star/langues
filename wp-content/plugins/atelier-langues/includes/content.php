@@ -8,30 +8,18 @@ function atelier_langues_post_types() {
     return array('page', 'post', 'oeuvre');
 }
 
-function atelier_langues_translation($post_id) {
-    $value = get_post_meta($post_id, '_atelier_langues_en', true);
+function atelier_langues_translation($post_id, $language = null) {
+    $language = $language ?? atelier_langues_current();
+    if (!isset(atelier_langues_languages()[$language])) { return array(); }
+    $value = get_post_meta($post_id, '_atelier_langues_' . $language, true);
     return is_array($value) ? $value : array();
 }
 
-function atelier_langues_has_translation($post_id) {
-    $value = atelier_langues_translation($post_id);
+function atelier_langues_has_translation($post_id, $language = null) {
+    $language = $language ?? atelier_langues_current();
+    if (atelier_langues_source() === $language) { return true; }
+    $value = atelier_langues_translation($post_id, $language);
     return !empty($value['ready']) && !empty($value['title']);
-}
-
-/** Champs simples réellement utilisés : les autres types restent communs. */
-function atelier_langues_acf_fields($post_id) {
-    $fields = array();
-    if (!function_exists('acf_get_field_groups')) {
-        return $fields;
-    }
-    foreach (acf_get_field_groups(array('post_id' => $post_id)) as $group) {
-        foreach ((array) acf_get_fields($group) as $field) {
-            if (in_array($field['type'], array('text', 'textarea', 'wysiwyg', 'url'), true)) {
-                $fields[$field['key']] = $field;
-            }
-        }
-    }
-    return $fields;
 }
 
 function atelier_langues_frontend() {
@@ -39,7 +27,7 @@ function atelier_langues_frontend() {
 }
 
 add_filter('the_title', function ($title, $post_id) {
-    if (atelier_langues_frontend() && 'en' === atelier_langues_current() && atelier_langues_has_translation($post_id)) {
+    if (atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current() && atelier_langues_has_translation($post_id)) {
         return atelier_langues_translation($post_id)['title'];
     }
     return $title;
@@ -49,14 +37,14 @@ add_filter('the_title', function ($title, $post_id) {
 add_filter('the_content', function ($content) {
     $id = get_the_ID();
     $translation = atelier_langues_translation($id);
-    if (atelier_langues_frontend() && 'en' === atelier_langues_current() && atelier_langues_has_translation($id) && !empty($translation['content'])) {
+    if (atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current() && atelier_langues_has_translation($id) && !empty($translation['content'])) {
         return $translation['content'];
     }
     return $content;
 }, 8);
 add_filter('get_the_excerpt', function ($excerpt, $post) {
     $translation = atelier_langues_translation($post->ID);
-    if (atelier_langues_frontend() && 'en' === atelier_langues_current() && atelier_langues_has_translation($post->ID) && !empty($translation['excerpt'])) {
+    if (atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current() && atelier_langues_has_translation($post->ID) && !empty($translation['excerpt'])) {
         return $translation['excerpt'];
     }
     return $excerpt;
@@ -64,19 +52,21 @@ add_filter('get_the_excerpt', function ($excerpt, $post) {
 
 // Remplacer la valeur brute : ACF applique ensuite son formatage habituel.
 add_filter('acf/load_value', function ($value, $post_id, $field) {
-    if (!atelier_langues_frontend() || 'en' !== atelier_langues_current() || !is_numeric($post_id) || !atelier_langues_has_translation($post_id)) {
+    if ('atelier_multi' !== $field['type'] || !atelier_langues_frontend() || !is_numeric($post_id)) {
         return $value;
     }
+    $language = atelier_langues_current();
+    $translated = atelier_langues_source() !== $language && atelier_langues_has_translation($post_id);
+    $multi = atelier_langues_multi_decode($value);
+    if (null !== $multi) { return $translated && isset($multi[$language]) && '' !== trim($multi[$language]) ? $multi[$language] : ($multi[atelier_langues_source()] ?? ''); }
+    if (!$translated) { return $value; }
     $translation = atelier_langues_translation($post_id);
     $english = $translation['acf'][$field['key']] ?? '';
-    if (in_array($field['type'], array('text', 'textarea', 'wysiwyg', 'url'), true) && is_string($english) && '' !== trim($english)) {
-        return $english;
-    }
-    return $value;
+    return is_string($english) && '' !== trim($english) ? $english : $value;
 }, 10, 3);
 
 add_filter('document_title_parts', function ($parts) {
-    if (is_singular() && 'en' === atelier_langues_current() && atelier_langues_has_translation(get_queried_object_id())) {
+    if (is_singular() && atelier_langues_source() !== atelier_langues_current() && atelier_langues_has_translation(get_queried_object_id())) {
         $parts['title'] = atelier_langues_translation(get_queried_object_id())['title'];
     }
     return $parts;
@@ -84,8 +74,8 @@ add_filter('document_title_parts', function ($parts) {
 
 /** Avant le rendu du thème : le bouton Créations et les noms des icônes en bénéficient aussi. */
 function atelier_langues_menu_label($item) {
-    if (atelier_langues_frontend() && 'en' === atelier_langues_current() && 'nav_menu_item' === $item->post_type) {
-        $english = get_post_meta($item->ID, '_atelier_langues_menu_en', true);
+    if (atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current() && 'nav_menu_item' === $item->post_type) {
+        $english = atelier_langues_native_text(get_post_meta($item->ID, '_atelier_langues_menu_en', true));
         if (is_string($english) && '' !== trim($english)) {
             // Cloner évite de modifier un objet partagé avec un autre rendu.
             $item = clone $item;
@@ -134,19 +124,30 @@ function atelier_langues_theme_text($translated, $original, $domain) {
     }
     $saved = get_option('atelier_langues_theme_strings', array());
     $entry = is_array($saved) ? ($saved[md5($original)] ?? array()) : array();
-    $fr = isset($entry['fr']) && is_string($entry['fr']) && '' !== trim($entry['fr']) ? $entry['fr'] : $translated;
-    return 'en' === atelier_langues_current() && !empty($entry['en']) && is_string($entry['en']) ? $entry['en'] : $fr;
+    if (is_string($entry)) { $entry = atelier_langues_multi_parts($entry); }
+    $language = atelier_langues_current();
+    $source = atelier_langues_source();
+    $fallback = isset($entry[$source]) && is_string($entry[$source]) && '' !== trim($entry[$source]) ? $entry[$source] : $translated;
+    return !empty($entry[$language]) && is_string($entry[$language]) ? $entry[$language] : $fallback;
 }
 add_filter('gettext', 'atelier_langues_theme_text', 10, 3);
 
 add_filter('single_term_title', function ($name) {
     $term = get_queried_object();
-    if (atelier_langues_frontend() && 'en' === atelier_langues_current() && $term instanceof WP_Term && 'discipline' === $term->taxonomy) {
-        $english = get_term_meta($term->term_id, '_atelier_langues_name_en', true);
+    if (atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current() && $term instanceof WP_Term && 'discipline' === $term->taxonomy) {
+        $english = atelier_langues_native_text(get_term_meta($term->term_id, '_atelier_langues_name_en', true));
         if (is_string($english) && '' !== trim($english)) {
             return $english;
         }
     }
     return $name;
 });
+
+add_filter('term_description', function ($description, $term_id, $taxonomy) {
+    if ('discipline' === $taxonomy && atelier_langues_frontend() && atelier_langues_source() !== atelier_langues_current()) {
+        $english = atelier_langues_native_text(get_term_meta($term_id, '_atelier_langues_description_en', true));
+        return '' !== trim($english) ? wpautop(wp_kses_post($english)) : $description;
+    }
+    return $description;
+}, 10, 3);
 

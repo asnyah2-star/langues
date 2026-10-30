@@ -1,12 +1,15 @@
 <?php
-/** Routage : conserver les règles existantes et leur ajouter deux variantes. */
+/** Routage et choix de langue à partir de la configuration commune. */
 if (!defined('ABSPATH')) {
     exit;
 }
 
 function atelier_langues_current() {
-    return 'en' === get_query_var('atelier_lang') ? 'en' : 'fr';
+    $language = get_query_var('atelier_lang');
+    return is_string($language) && isset(atelier_langues_languages()[$language]) ? $language : atelier_langues_source();
 }
+
+function atelier_langues_language_pattern() { return implode('|', array_map(function ($code) { return preg_quote($code, '#'); }, array_keys(atelier_langues_languages()))); }
 
 add_filter('query_vars', function ($vars) {
     $vars[] = 'atelier_lang';
@@ -15,7 +18,7 @@ add_filter('query_vars', function ($vars) {
 
 function atelier_langues_rewrite_rules($rules) {
     $localized = array();
-    foreach (array('fr', 'en') as $lang) {
+    foreach (array_keys(atelier_langues_languages()) as $lang) {
         $front = 'page' === get_option('show_on_front') ? '&page_id=' . (int) get_option('page_on_front') : '';
         $localized[$lang . '/?$'] = 'index.php?atelier_lang=' . $lang . $front;
         foreach ($rules as $regex => $query) {
@@ -31,7 +34,7 @@ add_filter('rewrite_rules_array', 'atelier_langues_rewrite_rules');
 
 /** Localise uniquement les URL publiques du site, y compris en sous-dossier. */
 function atelier_langues_url($url, $lang) {
-    if (!in_array($lang, array('fr', 'en'), true)) {
+    if (!isset(atelier_langues_languages()[$lang])) {
         return $url;
     }
     $home = untrailingslashit(get_option('home'));
@@ -39,7 +42,7 @@ function atelier_langues_url($url, $lang) {
         return $url;
     }
     $relative = ltrim(substr($url, strlen($home)), '/');
-    $relative = preg_replace('#^(fr|en)(/|(?=[?\#])|$)#', '', $relative);
+    $relative = preg_replace('#^(?:' . atelier_langues_language_pattern() . ')(/|(?=[?\#])|$)#', '', $relative);
     if (preg_match('#^(wp-admin|wp-json|wp-content|wp-includes|wp-login\.php)(/|[?]|$)#', $relative)) {
         return $url;
     }
@@ -52,14 +55,14 @@ function atelier_langues_content_url($url) {
         return $url;
     }
     $home = untrailingslashit(get_option('home'));
-    $plain = preg_replace('#^' . preg_quote($home, '#') . '/(?:fr|en)(?:/|$)#', $home . '/', $url);
+    $plain = preg_replace('#^' . preg_quote($home, '#') . '/(?:' . atelier_langues_language_pattern() . ')(?:/|$)#', $home . '/', $url);
     if (0 !== strpos($plain, $home . '/') && $plain !== $home) {
         return $url;
     }
     $id = url_to_postid($plain);
     $lang = atelier_langues_current();
-    if ($id && 'en' === $lang && !atelier_langues_has_translation($id)) {
-        $lang = 'fr';
+    if ($id && !atelier_langues_has_translation($id, $lang)) {
+        $lang = atelier_langues_source();
     }
     return atelier_langues_url($url, $lang);
 }
@@ -92,8 +95,8 @@ function atelier_langues_post_url($url, $post) {
     }
     $id = is_object($post) ? $post->ID : (int) $post;
     $lang = atelier_langues_current();
-    if ('en' === $lang && !atelier_langues_has_translation($id)) {
-        $lang = 'fr';
+    if (!atelier_langues_has_translation($id, $lang)) {
+        $lang = atelier_langues_source();
     }
     return atelier_langues_url($url, $lang);
 }
@@ -106,13 +109,15 @@ add_filter('term_link', function ($url) {
 
 /** Respecte les pondérations q de l'en-tête, sans deviner une langue inconnue. */
 function atelier_langues_browser_language($header) {
-    $best = 'fr';
+    $best = atelier_langues_source();
     $weight = 0;
     foreach (explode(',', strtolower($header)) as $entry) {
-        if (preg_match('/^\s*(fr|en)(?:-[a-z0-9-]+)?\s*(?:;\s*q=(0(?:\.\d+)?|1(?:\.0+)?))?\s*$/', $entry, $match)) {
+        if (preg_match('/^\s*([a-z]{2,3}(?:-[a-z0-9]{2,8})*)\s*(?:;\s*q=(0(?:\.\d+)?|1(?:\.0+)?))?\s*$/', $entry, $match)) {
             $quality = isset($match[2]) ? (float) $match[2] : 1;
-            if ($quality > $weight) {
-                $best = $match[1];
+            $code = $match[1];
+            while (!isset(atelier_langues_languages()[$code]) && false !== strrpos($code, '-')) { $code = substr($code, 0, strrpos($code, '-')); }
+            if (isset(atelier_langues_languages()[$code]) && $quality > $weight) {
+                $best = $code;
                 $weight = $quality;
             }
         }
@@ -132,28 +137,28 @@ add_action('template_redirect', function () {
     }
     $explicit = get_query_var('atelier_lang');
     $url = atelier_langues_request_url();
-    if (in_array($explicit, array('fr', 'en'), true)) {
+    if (is_string($explicit) && isset(atelier_langues_languages()[$explicit])) {
         if (isset($_GET['atelier_choice']) && '1' === $_GET['atelier_choice']) {
             setcookie('atelier_langues_choice', $explicit, array('expires' => time() + 180 * DAY_IN_SECONDS, 'path' => wp_parse_url(home_url('/'), PHP_URL_PATH) ?: '/', 'secure' => is_ssl(), 'httponly' => true, 'samesite' => 'Lax'));
             nocache_headers();
             wp_safe_redirect(remove_query_arg('atelier_choice', $url), 302);
             exit;
         }
-        if ('en' === $explicit && is_singular() && !atelier_langues_has_translation(get_queried_object_id())) {
+        if (is_singular() && !atelier_langues_has_translation(get_queried_object_id(), $explicit)) {
             nocache_headers();
-            wp_safe_redirect(atelier_langues_url($url, 'fr'), 302);
+            wp_safe_redirect(atelier_langues_url($url, atelier_langues_source()), 302);
             exit;
         }
         return;
     }
     // Option activable après les premiers tests : pas de redirection surprise.
-    if (!get_option('atelier_langues_detect_browser')) {
+    if (!get_option('atelier_langues_detect_browser', true)) {
         return;
     }
     $choice = $_COOKIE['atelier_langues_choice'] ?? '';
-    $lang = in_array($choice, array('fr', 'en'), true) ? $choice : atelier_langues_browser_language($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '');
-    if ('en' === $lang && is_singular() && !atelier_langues_has_translation(get_queried_object_id())) {
-        $lang = 'fr';
+    $lang = is_string($choice) && isset(atelier_langues_languages()[$choice]) ? $choice : atelier_langues_browser_language($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '');
+    if (is_singular() && !atelier_langues_has_translation(get_queried_object_id(), $lang)) {
+        $lang = atelier_langues_source();
     }
     nocache_headers();
     header('Vary: Accept-Language, Cookie', false);
@@ -177,8 +182,8 @@ add_action('wp_head', function () {
         return;
     }
     $id = get_queried_object_id();
-    if (atelier_langues_has_translation($id)) {
-        foreach (array('fr', 'en') as $lang) {
+    foreach (array_keys(atelier_langues_languages()) as $lang) {
+        if (atelier_langues_has_translation($id, $lang)) {
             echo '<link rel="alternate" hreflang="' . esc_attr($lang) . '" href="' . esc_url(atelier_langues_url(get_permalink($id), $lang)) . '" />' . "\n";
         }
     }
@@ -191,12 +196,12 @@ function atelier_langues_switcher() {
     }
     $id = get_queried_object_id();
     $discipline = is_tax('discipline');
-    $available = $discipline ? (bool) trim((string) get_term_meta($id, '_atelier_langues_name_en', true)) : atelier_langues_has_translation($id);
     $base = $discipline ? atelier_langues_request_url() : get_permalink($id);
     $base = remove_query_arg(array('atelier_lang', 'atelier_choice'), $base);
     echo '<div class="atelier-langues-switcher" role="group" aria-label="Langues / Languages">';
-    foreach (array('fr' => 'Français', 'en' => 'English') as $lang => $label) {
-        if ('en' === $lang && !$available) {
+    foreach (atelier_langues_languages() as $lang => $label) {
+        $available = $discipline ? (bool) trim(atelier_langues_native_text(get_term_meta($id, '_atelier_langues_name_en', true), '', $lang)) : atelier_langues_has_translation($id, $lang);
+        if (atelier_langues_source() !== $lang && !$available) {
             continue;
         }
         $url = add_query_arg('atelier_choice', '1', atelier_langues_url($base, $lang));

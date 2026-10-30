@@ -14,7 +14,6 @@ add_action('admin_menu', function () {
 function atelier_langues_site_page() {
     if (!current_user_can('manage_options') || !current_user_can('edit_theme_options')) { return; }
     $front = (int) get_option('page_on_front');
-    $english = atelier_langues_translation($front);
     $logo = (int) get_theme_mod('custom_logo');
     $email = (string) get_post_meta($front, 'contact_email', true);
     $social = atelier_langues_social_items();
@@ -24,7 +23,7 @@ function atelier_langues_site_page() {
             break;
         }
     }
-    echo '<div class="wrap"><h1>Réglages du site</h1><p>Logo du menu, coordonnées et pied de page. Les contenus des pages restent dans Pages et leurs traductions dans Atelier Langues.</p>';
+    echo '<div class="wrap"><h1>Réglages du site</h1><p>Logo du menu, coordonnées et pied de page. Les textes ACF se traduisent dans les fiches des pages et créations. Les titres et contenus principaux se traduisent dans Langues.</p>';
     if (isset($_GET['saved'])) { echo '<div class="notice notice-success"><p>Réglages enregistrés.</p></div>'; }
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="atelier_site_save">';
     wp_nonce_field('atelier_site_save');
@@ -38,7 +37,16 @@ function atelier_langues_site_page() {
     }
     $footer_field = function_exists('acf_get_field') ? acf_get_field('footer_texte') : false;
     if ($front && $footer_field) {
-        echo '<tr><th>Pied de page</th><td><label for="atelier-footer-fr">Français</label><br><textarea class="large-text" rows="3" id="atelier-footer-fr" name="footer_fr">' . esc_textarea((string) get_post_meta($front, 'footer_texte', true)) . '</textarea><label for="atelier-footer-en">Anglais</label><br><textarea class="large-text" rows="3" id="atelier-footer-en" name="footer_en">' . esc_textarea($english['acf'][$footer_field['key']] ?? '') . '</textarea><p class="description">Partagé par toutes les pages. L’anglais nécessite que l’accueil soit déclaré disponible dans Atelier Langues.</p></td></tr>';
+        echo '<tr><th>Pied de page</th><td>';
+        $stored = get_post_meta($front, 'footer_texte', true);
+        $parts = atelier_langues_multi_decode($stored);
+        $names = array(); $legacy = array();
+        foreach (atelier_langues_languages() as $lang => $label) {
+            $names[$lang] = 'footer[' . $lang . ']';
+            if (null === $parts) { $translation = atelier_langues_translation($front, $lang); $legacy[$lang] = atelier_langues_source() === $lang ? $stored : ($translation['acf'][$footer_field['key']] ?? ''); }
+        }
+        atelier_langues_multi_editor(atelier_langues_multi_parts($parts ?? $legacy), $names, 'textarea', 'Pied de page');
+        echo '<p class="description">Partagé par toutes les pages. Déclarez les traductions de l’accueil disponibles dans Langues.</p></td></tr>';
     }
     echo '</tbody></table>';
     submit_button('Enregistrer les réglages du site');
@@ -83,13 +91,10 @@ add_action('admin_post_atelier_site_save', function () {
         if (in_array('icon-email', $item->classes, true) && 'custom' === $item->type) { $urls[$item->ID] = $email ? 'mailto:' . $email : ''; }
         if (array_key_exists($item->ID, $urls)) { update_post_meta($item->ID, '_menu_item_url', wp_slash($urls[$item->ID])); }
     }
-    if ($front && function_exists('acf_get_field') && isset($_POST['footer_fr'], $_POST['footer_en']) && is_string($_POST['footer_fr']) && is_string($_POST['footer_en'])) {
+    if ($front && function_exists('acf_get_field') && isset($_POST['footer']) && atelier_langues_multi_valid($_POST['footer'])) {
         $field = acf_get_field('footer_texte');
         if ($field) {
-            update_field($field['key'], sanitize_textarea_field(wp_unslash($_POST['footer_fr'])), $front);
-            $en = atelier_langues_translation($front);
-            $en['acf'][$field['key']] = sanitize_textarea_field(wp_unslash($_POST['footer_en']));
-            update_post_meta($front, '_atelier_langues_en', wp_slash($en));
+            update_field($field['key'], wp_unslash($_POST['footer']), $front);
         }
     }
     wp_safe_redirect(admin_url('admin.php?page=atelier-site&saved=1'));

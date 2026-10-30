@@ -1,48 +1,41 @@
-# Préparer la livraison — autonomie de la cliente
+# Modifier le site — guide de la cliente
 
-## Première étape réalisée : un point d’entrée pour les réglages
+Mise à jour du 30 octobre 2026, extension Langues 0.4.0.
 
-Ouvrir **Réglages du site** dans le menu gauche de WordPress.
+## Modifier et traduire un texte
 
-| Besoin de la cliente | Où le modifier | État |
-| --- | --- | --- |
-| Logo du menu | Réglages du site → Logo du menu → Choisir / remplacer ou Retirer | Ajouté, sélecteur de médiathèque |
-| E-mail | Réglages du site → E-mail de contact | Champ existant et icône e-mail synchronisés à l’enregistrement |
-| Adresses des réseaux sociaux | Réglages du site → champ du réseau | Adresses existantes réutilisées ; vider masque l’icône |
-| Ajouter ou réordonner les réseaux | Apparence → Menus → Liens sociaux | Fonctionnement existant, lien d’aide dans l’écran |
-| Texte du footer français / anglais | Réglages du site → Pied de page | Même stockage ACF et traduction que l’accueil, pas de nouvelle copie |
-| Logo et carrousel de l’accueil | Pages → Accueil | Champs existants, raccourci dans Réglages du site |
-| Logo et phrase de Contact | Pages → Contact | Champs existants, raccourci dans Réglages du site |
-| Biographie et portrait | Pages → À propos | Champs et éditeur existants |
-| Nouvelle création | Créations → Ajouter une création | À simplifier et à tester avec la cliente |
-| Traductions | Réglages → Atelier Langues | Fonctionnel ; saisie HTML à améliorer |
-| Discipline et nom anglais | Créations → Disciplines | Fonctionnel ; description anglaise non prise en charge |
-| Libellés anglais des menus | Apparence → Menus | Champ Libellé anglais |
-| Textes fixes du thème | Réglages → Atelier Langues → Textes du thème | Catalogue existant |
-| Texte alternatif des images | Médias → Bibliothèque → image | Français partagé actuellement ; anglais à prévoir |
+1. Ouvrir la page ou la création dans WordPress.
+2. Dans le champ concerné, cliquer sur l’onglet de la langue à modifier.
+3. Modifier le texte. Le changement d’onglet conserve la saisie.
+4. Cliquer sur Mettre à jour pour enregistrer les versions des langues actives.
+5. Vérifier le résultat sur le site avec le sélecteur de langue.
 
-## Ce qui est conservé
+Les balises de stockage sont gérées automatiquement. Un texte manquant reprend la langue source, le français sur ce site.
 
-Les données restent dans leurs emplacements d’origine : logo dans les réglages du thème, liens dans les entrées du menu social, footer et e-mail sur l’accueil, anglais du footer dans la traduction de l’accueil. Rien n’est migré ni supprimé. Les anciens écrans restent utilisables : une seule valeur enregistrée peut être visible depuis plusieurs écrans.
+FR et EN sont actuellement actives. La personne qui maintient le site peut ajouter des langues dans la configuration du plugin. Leurs onglets apparaîtront automatiquement ; les traductions devront ensuite être saisies et déclarées relues dans Langues. L’ajout d’une langue ne traduit pas les textes automatiquement.
 
-L’e-mail affiché dans le nouvel écran est celui de l’icône si elle existe, sinon celui du champ ACF. Les deux sources sont harmonisées lors d’un enregistrement volontaire. Les réseaux absents du menu ne sont pas inventés. Vider un lien masque l’entrée sur le site sans la supprimer. Le texte anglais du footer nécessite toujours une version anglaise de l’accueil disponible.
+## Où trouver chaque élément ?
 
-Le nouvel écran est réservé aux utilisateurs ayant `manage_options` et `edit_theme_options`. Le compte cliente et ses droits adaptés restent à préparer : ne pas lui donner automatiquement tous les droits administrateur pour contourner ce point.
+| Besoin | Emplacement |
+| --- | --- |
+| Accroche, présentation, logo et carrousel de l’accueil | Pages → Accueil |
+| Biographie, démarche, parcours et portrait | Pages → À propos |
+| Introduction, logo et signature de Contact | Pages → Contact |
+| Images, description française, disciplines, année, technique et dimensions d’une œuvre | Créations → fiche de l’œuvre |
+| Titre, contenu principal et extrait dans les autres langues | Réglages → Langues → sélectionner le contenu |
+| Déclarer une traduction relue et disponible | Réglages → Langues, titre traduit requis pour cette langue |
+| Nom et description d’une discipline en FR/EN | Créations → Disciplines → Modifier |
+| Libellés et ordre des menus | Apparence → Menus |
+| Logo du menu, e-mail et adresses des réseaux | Réglages du site |
+| Pied de page FR/EN | Réglages du site → Pied de page |
+| Petits textes fixes | Réglages → Langues → Textes du thème |
 
-## Ordre des prochaines étapes
+Les médias et coordonnées sont communs aux langues. Pour ajouter une discipline, la créer puis ouvrir Modifier pour la traduire. Les textes alternatifs et légendes des images restent partagés pour l’instant.
 
-1. **Faire un essai des réglages** : modifier un texte du footer, enregistrer, vérifier FR/EN et recharger l’administration ; tester logo et réseau social, puis remettre les valeurs souhaitées.
-2. **Simplifier la fiche création** : confirmer avec la cliente les données vraiment utiles (description, image principale, galerie, discipline, année, technique, dimensions, crédits, médias/liens facultatifs). Ne pas ajouter des champs sans besoin identifié.
-3. **Améliorer la saisie bilingue** : éditeur visuel, état des traductions et textes alternatifs/légendes.
-4. **Préparer les droits et le guide cliente** : parcours guidés pour ajouter une création, remplacer une image et traduire un texte.
-5. **Recette et livraison** : tests mobile/clavier, référencement, sauvegarde actualisée avec restauration testée, hébergement/HTTPS et responsabilité de maintenance clairement définie.
+Le français des titres et du contenu principal peut aussi être modifié dans l’éditeur WordPress habituel. Leur traduction anglaise reste dans Langues pour préserver l’éditeur de blocs existant. Éviter de modifier la même fiche dans plusieurs onglets du navigateur en parallèle.
 
-## Vérifications de cette étape
+Le site choisit la langue selon l’URL, le choix manuel mémorisé, puis les préférences du navigateur. Le français est le secours pour une langue non prise en charge ou une traduction absente.
 
-## Fiches de créations : guide intégré
+## Avant livraison
 
-L’écran **Créations → Ajouter une création** (et Modifier) comporte maintenant un bloc **Préparer cette création** : titre, description/blocs de médias, image mise en avant, disciplines, informations facultatives, brouillon et aperçu, puis lien vers la traduction de la fiche. Le titre suggère « Nom de l’œuvre ». Les champs ACF année/technique/dimensions portent des instructions courtes.
-
-Pas de champ supplémentaire ni de modification des données. Les blocs WordPress restent le moyen d’ajouter images, galerie, audio ou vidéo ; les besoins futurs de crédits et de médias structurés restent à confirmer avec la cliente. Tester la publication d’une création en brouillon avec elle avant de figer l’ergonomie. Une Galerie WordPress avec légendes peut nécessiter un ajustement de présentation : elle n’active pas nécessairement notre détection actuelle des fiches composées uniquement d’images sans texte.
-
-Syntaxe PHP valide ; rendu de l’écran vérifié en mémoire avec logo, e-mail, footer, cinq entrées sociales et nonce ; 39 contrôles existants réussis. Aucun réglage de contenu n’a été modifié pendant ces vérifications. Sauvegarde réelle du nouveau formulaire et interaction du sélecteur de médias encore à tester dans le navigateur connecté. La sauvegarde antérieure ne couvre pas cette nouvelle étape.
+Tester avec la cliente les textes riches, les menus, les sauvegardes et la réouverture des champs. Préparer un compte avec les droits adaptés : les écrans Langues et Réglages du site sont actuellement réservés à l’administration. Tester également le mobile, le clavier et une restauration de sauvegarde complète.

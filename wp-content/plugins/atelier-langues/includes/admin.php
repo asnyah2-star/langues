@@ -3,12 +3,26 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+add_action('add_meta_boxes', function () {
+    foreach (atelier_langues_post_types() as $type) {
+        add_meta_box('langues-status', 'Langues', function ($post) {
+            foreach (atelier_langues_languages() as $lang => $label) {
+                if (atelier_langues_source() !== $lang) { echo '<p>' . esc_html($label . (atelier_langues_has_translation($post->ID, $lang) ? ' : disponible.' : ' : à préparer ou à relire.')) . '</p>'; }
+            }
+            echo '<p>Traduisez les champs ACF dans leurs onglets ci-dessous.</p>';
+            if (current_user_can('manage_options')) {
+                echo '<p><a href="' . esc_url(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $post->ID), admin_url('options-general.php'))) . '">Titre, contenu principal et langues disponibles</a></p>';
+            }
+        }, $type, 'side');
+    }
+});
+
 // Aider à publier sans créer une deuxième série de champs.
 add_action('add_meta_boxes_oeuvre', function () {
     add_meta_box('atelier-creation-guide', 'Préparer cette création', function ($post) {
         echo '<ol><li><strong>Titre :</strong> nom de l’œuvre, saisi en haut de la fiche.</li><li><strong>Description :</strong> rédigez le texte dans l’éditeur principal. Utilisez ses blocs Image, Galerie, Audio ou Vidéo si nécessaire.</li><li><strong>Image mise en avant :</strong> choisissez le visuel principal dans les réglages de la création. Il représente aussi l’œuvre dans les listes.</li><li><strong>Disciplines :</strong> sélectionnez la ou les disciplines pertinentes pour que l’œuvre apparaisse dans les bonnes listes.</li><li><strong>Informations complémentaires :</strong> année, technique et dimensions sont facultatives. Les champs vides ne s’affichent pas.</li></ol>';
         echo '<p>Enregistrez d’abord un brouillon et vérifiez l’aperçu avant de publier. Pour une galerie, choisissez les images dans la médiathèque ; inutile de créer une fiche par image.</p>';
-        echo '<p><a href="' . esc_url(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $post->ID), admin_url('options-general.php'))) . '">Ouvrir la traduction de cette création</a> — après avoir enregistré le français. Déclarez l’anglais disponible seulement après relecture.</p>';
+        echo '<p><a href="' . esc_url(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $post->ID), admin_url('options-general.php'))) . '">Ouvrir les traductions de cette création</a> — après avoir enregistré le contenu source. Déclarez chaque traduction disponible seulement après relecture.</p>';
     }, 'oeuvre', 'normal', 'high');
 });
 
@@ -16,7 +30,7 @@ add_filter('enter_title_here', function ($placeholder, $post) {
     return 'oeuvre' === $post->post_type ? 'Nom de l’œuvre' : $placeholder;
 }, 10, 2);
 
-foreach (array('oeuvre_annee' => 'Facultatif. Année de création, commune aux deux langues.', 'oeuvre_technique' => 'Facultatif. Matériaux ou technique ; traduction dans Atelier Langues.', 'oeuvre_dimensions' => 'Facultatif. Indiquez les unités, par exemple 30 × 40 cm.') as $field_name => $help) {
+foreach (array('oeuvre_annee' => 'Facultatif. Année de création, commune aux deux langues.', 'oeuvre_technique' => 'Facultatif. Matériaux ou technique ; utilisez les onglets FR/EN.', 'oeuvre_dimensions' => 'Facultatif. Indiquez les unités, par exemple 30 × 40 cm.') as $field_name => $help) {
     add_filter('acf/prepare_field/name=' . $field_name, function ($field) use ($help) {
         $field['instructions'] = $help;
         return $field;
@@ -25,8 +39,8 @@ foreach (array('oeuvre_annee' => 'Facultatif. Année de création, commune aux d
 
 function atelier_langues_add_admin_menu() {
     add_options_page(
-        'Atelier Langues',
-        'Atelier Langues',
+        'Langues',
+        'Langues',
         'manage_options',
         'atelier-langues',
         'atelier_langues_render_admin_page'
@@ -41,16 +55,16 @@ function atelier_langues_render_admin_page() {
 
     $post_id = isset($_GET['content_id']) ? absint($_GET['content_id']) : (int) get_option('page_on_front');
     $post = get_post($post_id);
-    echo '<div class="wrap"><h1>Atelier Langues</h1>';
-    echo '<p>Saisissez vos traductions manuellement. Une valeur anglaise vide conserve la valeur française. Les médias restent partagés.</p>';
+    echo '<div class="wrap"><h1>Langues</h1>';
+    echo '<p>Saisissez vos traductions manuellement. Un texte vide reprend la langue source. Les médias restent partagés.</p>';
     $front_id = (int) get_option('page_on_front');
     $contact = get_page_by_path('contact');
     echo '<p>Accès directs : ';
     if ($contact) {
-        echo '<a href="' . esc_url(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $contact->ID), admin_url('options-general.php'))) . '">Textes de Contact</a> · ';
+        echo '<a href="' . esc_url(get_edit_post_link($contact->ID)) . '">Textes de Contact</a> · ';
     }
     if ($front_id) {
-        echo '<a href="' . esc_url(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $front_id), admin_url('options-general.php'))) . '">Pied de page (champs de l’accueil)</a> · ';
+        echo '<a href="' . esc_url(admin_url('admin.php?page=atelier-site')) . '">Pied de page</a> · ';
     }
     echo '<a href="#theme-strings">Textes fixes du thème</a></p>';
     if (isset($_GET['saved'])) {
@@ -66,45 +80,36 @@ function atelier_langues_render_admin_page() {
     submit_button('Ouvrir', 'secondary', 'open', false);
     echo '</form>';
     if ($post && in_array($post->post_type, atelier_langues_post_types(), true) && current_user_can('edit_post', $post_id)) {
-        $english = atelier_langues_translation($post_id);
-        if (atelier_langues_has_translation($post_id)) {
-            echo '<p><strong>Statut : version anglaise disponible.</strong> Le sélecteur du site propose Français et English.</p>';
-        } else {
-            echo '<p><strong>Statut : version anglaise non disponible.</strong> Renseignez le titre anglais, puis cochez « Version anglaise relue et disponible » et enregistrez pour afficher le lien English sur le site.</p>';
-        }
-        if ($post_id === (int) get_option('page_on_front')) {
-            echo '<p>Sur l’accueil, le grand titre visible vient du champ « Accroche ». Le champ « Titre » désigne le titre WordPress de la page ; sa traduction ne remplace pas automatiquement le texte du menu.</p>';
-            echo '<p><strong>Pied de page :</strong> le champ de texte du footer ci-dessous est commun à toutes les pages. Sa traduction anglaise est utilisée si la version anglaise de l’accueil est déclarée disponible. L’année et le nom du site restent communs.</p>';
-        }
-        if ($contact && $post_id === (int) $contact->ID) {
-            echo '<p><strong>Contact :</strong> traduisez le champ Introduction ci-dessous, puis le Contenu si vous y avez ajouté du texte. Si Introduction est vide, la phrase de repli se règle dans <a href="#theme-strings">Textes du thème → Contact — texte de repli</a>. Les coordonnées et les liens sociaux se modifient dans <a href="' . esc_url(admin_url('admin.php?page=atelier-site')) . '">Réglages du site</a>.</p>';
-        }
+        $translations = array();
+        foreach (atelier_langues_languages() as $lang => $label) { $translations[$lang] = atelier_langues_translation($post_id, $lang); }
+        echo '<p>Ci-dessous : titre, contenu principal et extrait WordPress. Les textes ACF (accroche, introduction, biographie, technique…) se traduisent directement dans la fiche. Le pied de page est aussi accessible dans Réglages du site.</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         echo '<input type="hidden" name="action" value="atelier_langues_save"><input type="hidden" name="content_id" value="' . esc_attr($post_id) . '">';
         echo '<input type="hidden" name="source_modified" value="' . esc_attr($post->post_modified_gmt) . '">';
         wp_nonce_field('atelier_langues_save_' . $post_id);
-        echo '<table class="widefat atelier-langues-table"><caption>Français et anglais — ' . esc_html($post->post_title) . '</caption><thead><tr><th scope="col">Champ</th><th scope="col">Français</th><th scope="col">Anglais</th></tr></thead><tbody>';
-        atelier_langues_admin_row('Titre', 'title', $post->post_title, $english['title'] ?? '', 'text');
-        atelier_langues_admin_row('Contenu (HTML ou blocs WordPress)', 'content', $post->post_content, $english['content'] ?? '', 'wysiwyg');
-        atelier_langues_admin_row('Extrait', 'excerpt', $post->post_excerpt, $english['excerpt'] ?? '', 'textarea');
-        foreach (atelier_langues_acf_fields($post_id) as $key => $field) {
-            atelier_langues_admin_row($field['label'], 'acf][' . $key, (string) get_field($key, $post_id, false), $english['acf'][$key] ?? '', $field['type']);
+        echo '<table class="widefat atelier-langues-table"><caption>' . esc_html($post->post_title) . '</caption><thead><tr><th scope="col">Champ</th><th scope="col" colspan="2">Texte — choisissez un onglet</th></tr></thead><tbody>';
+        foreach (array('title' => array('Titre', 'text'), 'content' => array('Contenu principal', 'wysiwyg'), 'excerpt' => array('Extrait', 'textarea')) as $key => $definition) {
+            $parts = array();
+            foreach (atelier_langues_languages() as $lang => $label) { $parts[$lang] = atelier_langues_source() === $lang ? $post->{'post_' . $key} : ($translations[$lang][$key] ?? ''); }
+            atelier_langues_admin_row($definition[0], $key, $parts, $definition[1]);
         }
-        echo '</tbody></table><p><label><input type="checkbox" name="english[ready]" value="1" ' . checked(!empty($english['ready']), true, false) . '> Version anglaise relue et disponible (titre anglais obligatoire)</label></p>';
-        echo '<p>Les éditeurs ci-dessus acceptent le HTML. Les champs français existants sont mis à jour : évitez de modifier la même fiche dans un autre onglet en parallèle.</p>';
-        submit_button('Enregistrer les deux langues');
+        echo '</tbody></table><p><a href="' . esc_url(get_edit_post_link($post_id)) . '">Modifier les champs ACF et leurs traductions directement dans la fiche</a></p>';
+        foreach (atelier_langues_languages() as $lang => $label) {
+            if (atelier_langues_source() === $lang) { continue; }
+            echo '<p><label><input type="checkbox" name="translations[' . esc_attr($lang) . '][ready]" value="1" ' . checked(!empty($translations[$lang]['ready']), true, false) . '> ' . esc_html($label) . ' : traduction relue et disponible (titre traduit requis)</label></p>';
+        }
+        echo '<p>Les éditeurs ci-dessus acceptent le HTML. Les champs natifs dans la langue source sont mis à jour : évitez de modifier la même fiche dans un autre onglet en parallèle.</p>';
+        submit_button('Enregistrer les traductions');
         echo '</form>';
         if ('publish' === $post->post_status) {
-            echo '<p><a href="' . esc_url(atelier_langues_url(get_permalink($post_id), 'fr')) . '">Voir en français</a>';
-            if (atelier_langues_has_translation($post_id)) {
-                echo ' · <a href="' . esc_url(atelier_langues_url(get_permalink($post_id), 'en')) . '">Voir en anglais</a>';
+            foreach (atelier_langues_languages() as $lang => $label) {
+                if (atelier_langues_has_translation($post_id, $lang)) { echo '<p><a href="' . esc_url(atelier_langues_url(get_permalink($post_id), $lang)) . '">Voir : ' . esc_html($label) . '</a></p>'; }
             }
-            echo '</p>';
         }
     }
-    echo '<hr><h2>Détection de la langue</h2><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="atelier_langues_settings">';
+    echo '<hr><h2>Configuration</h2><p>Langues actives : ' . esc_html(implode(', ', atelier_langues_languages())) . '. La liste se définit dans atelier_langues_languages(), dans le fichier principal du plugin. La première est la langue des contenus natifs et sert de secours.</p><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="atelier_langues_settings">';
     wp_nonce_field('atelier_langues_settings');
-    echo '<label><input type="checkbox" name="detect_browser" value="1" ' . checked((bool) get_option('atelier_langues_detect_browser'), true, false) . '> Rediriger les URL sans préfixe selon le choix mémorisé ou la langue du navigateur</label><p>Activez après avoir vérifié /fr/ et /en/. Les URL explicitement préfixées restent prioritaires. Un cache de pages devra exclure les URL sans préfixe.</p>';
+    echo '<label><input type="checkbox" name="detect_browser" value="1" ' . checked((bool) get_option('atelier_langues_detect_browser', true), true, false) . '> Rediriger les URL sans préfixe selon le choix mémorisé ou la langue du navigateur</label><p>Vérifiez les URL des langues configurées. Les URL explicitement préfixées restent prioritaires. Un cache de pages devra exclure les URL sans préfixe.</p>';
     submit_button('Enregistrer ce réglage', 'secondary');
     echo '</form>';
     atelier_langues_theme_form();
@@ -113,13 +118,15 @@ function atelier_langues_render_admin_page() {
 
 function atelier_langues_theme_form() {
     $saved = get_option('atelier_langues_theme_strings', array());
-    echo '<hr><h2 id="theme-strings">Textes du thème</h2><p>Ces petits libellés sont partagés entre les pages. Un anglais vide conserve le français. Saisissez du texte simple, sans HTML.</p>';
+    echo '<hr><h2 id="theme-strings">Textes du thème</h2><p>Ces petits libellés sont partagés entre les pages. Un texte vide reprend la langue source. Saisissez du texte simple, sans HTML.</p>';
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="atelier_langues_theme_strings">';
     wp_nonce_field('atelier_langues_theme_strings');
-    echo '<table class="widefat atelier-langues-table"><caption>Libellés du thème Atelier Artiste</caption><thead><tr><th scope="col">Emplacement</th><th scope="col">Français</th><th scope="col">Anglais</th></tr></thead><tbody>';
+    echo '<table class="widefat atelier-langues-table"><caption>Libellés du thème Atelier Artiste</caption><thead><tr><th scope="col">Emplacement</th><th scope="col" colspan="2">Texte — choisissez un onglet</th></tr></thead><tbody>';
     foreach (atelier_langues_theme_strings() as $original => $location) {
         $key = md5($original);
-        atelier_langues_admin_row($location, 'theme][' . $key, $saved[$key]['fr'] ?? $original, $saved[$key]['en'] ?? '', 'text');
+        $parts = atelier_langues_multi_parts($saved[$key] ?? $original);
+        if ('' === trim($parts[atelier_langues_source()])) { $parts[atelier_langues_source()] = $original; }
+        atelier_langues_admin_row($location, 'theme][' . $key, $parts, 'text');
     }
     echo '</tbody></table>';
     submit_button('Enregistrer les textes du thème');
@@ -131,9 +138,8 @@ add_action('admin_post_atelier_langues_theme_strings', function () {
         wp_die('Accès refusé.', '', array('response' => 403));
     }
     check_admin_referer('atelier_langues_theme_strings');
-    $fr = $_POST['french']['theme'] ?? array();
-    $en = $_POST['english']['theme'] ?? array();
-    if (!is_array($fr) || !is_array($en)) {
+    $submitted = $_POST['translations'] ?? array();
+    if (!is_array($submitted)) {
         wp_die('Formulaire invalide.', '', array('response' => 400));
     }
     $saved = get_option('atelier_langues_theme_strings', array());
@@ -141,30 +147,22 @@ add_action('admin_post_atelier_langues_theme_strings', function () {
     foreach (atelier_langues_theme_strings() as $original => $location) {
         $key = md5($original);
         // Un formulaire tronqué ne doit pas effacer les valeurs absentes.
-        if (isset($fr[$key], $en[$key]) && is_string($fr[$key]) && is_string($en[$key])) {
-            $saved[$key] = array('fr' => sanitize_text_field(wp_unslash($fr[$key])), 'en' => sanitize_text_field(wp_unslash($en[$key])));
-        }
+        $values = array();
+        foreach (atelier_langues_languages() as $lang => $label) { $values[$lang] = $submitted[$lang]['theme'][$key] ?? null; }
+        if (atelier_langues_multi_valid($values)) { $saved[$key] = atelier_langues_multi_merge($saved[$key] ?? $original, wp_unslash($values), 'text'); }
     }
     update_option('atelier_langues_theme_strings', $saved);
     wp_safe_redirect(admin_url('options-general.php?page=atelier-langues&saved=1#theme-strings'));
     exit;
 });
 
-/** Des libellés distincts et des colonnes adaptables, sans script nécessaire. */
-function atelier_langues_admin_row($label, $key, $french, $english, $type) {
-    echo '<tr><th scope="row">' . esc_html($label) . '</th>';
-    foreach (array('french' => $french, 'english' => $english) as $lang => $value) {
-        $name = $lang . '[' . $key . ']';
-        $id = sanitize_html_class($lang . '-' . str_replace('][', '-', $key));
-        echo '<td><label class="screen-reader-text" for="' . esc_attr($id) . '">' . esc_html($label . ('french' === $lang ? ' français' : ' anglais')) . '</label>';
-        if (in_array($type, array('textarea', 'wysiwyg'), true)) {
-            echo '<textarea class="large-text" rows="8" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '">' . esc_textarea($value) . '</textarea>';
-        } else {
-            echo '<input class="large-text" type="' . ('url' === $type ? 'url' : 'text') . '" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
-        }
-        echo '</td>';
-    }
-    echo '</tr>';
+/** Un composant partagé : une seule langue visible par champ. */
+function atelier_langues_admin_row($label, $key, $parts, $type) {
+    $names = array();
+    foreach (atelier_langues_languages() as $lang => $language_label) { $names[$lang] = 'translations[' . $lang . '][' . $key . ']'; }
+    echo '<tr><th scope="row">' . esc_html($label) . '</th><td colspan="2">';
+    atelier_langues_multi_editor(atelier_langues_multi_parts($parts), $names, $type, $label);
+    echo '</td></tr>';
 }
 
 function atelier_langues_clean_value($value, $type) {
@@ -180,6 +178,28 @@ function atelier_langues_clean_value($value, $type) {
     return 'textarea' === $type ? sanitize_textarea_field($value) : sanitize_text_field($value);
 }
 
+/** Valider toutes les langues avant d'enregistrer le moindre contenu. */
+function atelier_langues_save_post_translations($id, $submitted) {
+    if (!is_array($submitted)) { return new WP_Error('incomplete', 'Formulaire incomplet.'); }
+    $clean = array();
+    foreach (atelier_langues_languages() as $lang => $label) {
+        foreach (array('title' => 'text', 'content' => 'wysiwyg', 'excerpt' => 'textarea') as $key => $type) {
+            if (!isset($submitted[$lang][$key]) || !is_string($submitted[$lang][$key])) { return new WP_Error('incomplete', 'Formulaire incomplet : rechargez la page. Aucune modification enregistrée.'); }
+            $clean[$lang][$key] = atelier_langues_clean_value($submitted[$lang][$key], $type);
+        }
+    }
+    $source = atelier_langues_source();
+    $result = wp_update_post(wp_slash(array('ID' => $id, 'post_title' => $clean[$source]['title'], 'post_content' => $clean[$source]['content'], 'post_excerpt' => $clean[$source]['excerpt'])), true);
+    if (is_wp_error($result)) { return $result; }
+    foreach (atelier_langues_languages() as $lang => $label) {
+        if ($source === $lang) { continue; }
+        $entry = array_replace(atelier_langues_translation($id, $lang), $clean[$lang]);
+        $entry['ready'] = !empty($submitted[$lang]['ready']) && '' !== trim($entry['title']);
+        update_post_meta($id, '_atelier_langues_' . $lang, wp_slash($entry));
+    }
+    return true;
+}
+
 add_action('admin_post_atelier_langues_save', function () {
     $id = isset($_POST['content_id']) ? absint($_POST['content_id']) : 0;
     $post = get_post($id);
@@ -187,34 +207,13 @@ add_action('admin_post_atelier_langues_save', function () {
         wp_die('Accès refusé.', '', array('response' => 403));
     }
     check_admin_referer('atelier_langues_save_' . $id);
-    if (!isset($_POST['source_modified']) || $post->post_modified_gmt !== wp_unslash($_POST['source_modified'])) {
+    if (!isset($_POST['source_modified']) || !is_string($_POST['source_modified']) || $post->post_modified_gmt !== wp_unslash($_POST['source_modified'])) {
         wp_die('Le contenu a changé dans un autre onglet. Rechargez la page avant de réessayer.', '', array('response' => 409));
     }
-    $fr = isset($_POST['french']) && is_array($_POST['french']) ? wp_unslash($_POST['french']) : array();
-    $en = isset($_POST['english']) && is_array($_POST['english']) ? wp_unslash($_POST['english']) : array();
-    if (!isset($fr['title'], $fr['content'], $fr['excerpt'], $en['title'], $en['content'], $en['excerpt'])) {
-        wp_die('Formulaire incomplet : aucune modification enregistrée.', '', array('response' => 400));
-    }
-    $english = array();
-    $update = array('ID' => $id);
-    foreach (array('title' => 'text', 'content' => 'wysiwyg', 'excerpt' => 'textarea') as $key => $type) {
-        $update['post_' . $key] = atelier_langues_clean_value($fr[$key], $type);
-        $english[$key] = atelier_langues_clean_value($en[$key], $type);
-    }
-    $result = wp_update_post(wp_slash($update), true);
+    $result = atelier_langues_save_post_translations($id, isset($_POST['translations']) ? wp_unslash($_POST['translations']) : null);
     if (is_wp_error($result)) {
-        wp_die(esc_html($result->get_error_message()));
+        wp_die(esc_html($result->get_error_message()), '', array('response' => 400));
     }
-    $english['ready'] = !empty($en['ready']) && '' !== $english['title'];
-    foreach (atelier_langues_acf_fields($id) as $key => $field) {
-        if (isset($fr['acf'][$key])) {
-            update_field($key, atelier_langues_clean_value($fr['acf'][$key], $field['type']), $id);
-        }
-        if (isset($en['acf'][$key])) {
-            $english['acf'][$key] = atelier_langues_clean_value($en['acf'][$key], $field['type']);
-        }
-    }
-    update_post_meta($id, '_atelier_langues_en', wp_slash($english));
     wp_safe_redirect(add_query_arg(array('page' => 'atelier-langues', 'content_id' => $id, 'saved' => 1), admin_url('options-general.php')));
     exit;
 });
@@ -229,22 +228,15 @@ add_action('admin_post_atelier_langues_settings', function () {
     exit;
 });
 
-add_action('admin_enqueue_scripts', function ($hook) {
-    if ('settings_page_atelier-langues' === $hook) {
-        wp_enqueue_style('atelier-langues-admin', plugins_url('../assets/admin.css', __FILE__), array(), '0.2.0');
-    }
-});
-
-/** Le libellé français reste celui de WordPress ; seul l'anglais est ajouté. */
+/** Le libellé source reste celui de WordPress ; les traductions partagent une valeur multi. */
 function atelier_langues_menu_field($item_id) {
     $english = get_post_meta($item_id, '_atelier_langues_menu_en', true);
     $english = is_string($english) ? $english : '';
-    echo '<p class="description description-wide">';
-    echo '<label for="atelier-menu-en-' . esc_attr($item_id) . '">Libellé anglais (Atelier Langues)<br>';
-    echo '<input type="text" class="widefat" id="atelier-menu-en-' . esc_attr($item_id) . '" name="atelier_menu_en[' . esc_attr($item_id) . ']" value="' . esc_attr($english) . '"></label>';
+    echo '<div class="description description-wide">';
+    atelier_langues_native_editor(get_post_field('post_title', $item_id), $english, 'atelier_menu[' . $item_id . ']', '#edit-menu-item-title-' . $item_id, 'text', 'Libellé du menu');
     echo '<span class="description">Vide : le libellé français est conservé. Les icônes et les destinations restent partagées.</span>';
     wp_nonce_field('atelier_menu_' . $item_id, 'atelier_menu_nonce[' . $item_id . ']', false);
-    echo '</p>';
+    echo '</div>';
 }
 add_action('wp_nav_menu_item_custom_fields', 'atelier_langues_menu_field');
 
@@ -254,29 +246,38 @@ function atelier_langues_save_menu_field($menu_id, $item_id) {
         return;
     }
     $nonce = $_POST['atelier_menu_nonce'][$item_id] ?? '';
-    $value = $_POST['atelier_menu_en'][$item_id] ?? null;
-    if (!is_string($nonce) || !wp_verify_nonce(wp_unslash($nonce), 'atelier_menu_' . $item_id) || !is_string($value)) {
+    $value = $_POST['atelier_menu'][$item_id] ?? null;
+    if (!is_string($nonce) || !wp_verify_nonce(wp_unslash($nonce), 'atelier_menu_' . $item_id)) {
         return;
     }
-    update_post_meta($item_id, '_atelier_langues_menu_en', wp_slash(sanitize_text_field(wp_unslash($value))));
+    $packed = atelier_langues_native_save(get_post_field('post_title', $item_id), get_post_meta($item_id, '_atelier_langues_menu_en', true), wp_unslash($value), 'text');
+    if (null !== $packed) { update_post_meta($item_id, '_atelier_langues_menu_en', wp_slash($packed)); }
 }
 add_action('wp_update_nav_menu_item', 'atelier_langues_save_menu_field', 10, 2);
 
 /** Une seule valeur supplémentaire sur la discipline existante. */
 add_action('discipline_edit_form_fields', function ($term) {
     $value = get_term_meta($term->term_id, '_atelier_langues_name_en', true);
-    echo '<tr class="form-field"><th scope="row"><label for="atelier-discipline-en">Nom anglais</label></th><td>';
-    echo '<input type="text" id="atelier-discipline-en" name="atelier_discipline_en" value="' . esc_attr(is_string($value) ? $value : '') . '">';
+    echo '<tr class="form-field"><th scope="row">Nom de la discipline</th><td>';
+    atelier_langues_native_editor($term->name, is_string($value) ? $value : '', 'atelier_discipline', '#name', 'text', 'Discipline');
     echo '<p class="description">Vide : le nom français est conservé. Le slug et les créations associées restent inchangés.</p>';
     wp_nonce_field('atelier_discipline_' . $term->term_id, 'atelier_discipline_nonce');
+    echo '</td></tr>';
+    echo '<tr class="form-field"><th scope="row">Description</th><td>';
+    atelier_langues_native_editor($term->description, get_term_meta($term->term_id, '_atelier_langues_description_en', true), 'atelier_discipline_description', '#description', 'textarea', 'Description de la discipline');
     echo '</td></tr>';
 });
 
 add_action('edited_discipline', function ($term_id) {
-    $value = $_POST['atelier_discipline_en'] ?? null;
+    $value = $_POST['atelier_discipline'] ?? null;
     $nonce = $_POST['atelier_discipline_nonce'] ?? '';
-    if (!current_user_can('edit_term', $term_id) || !is_string($value) || !is_string($nonce) || !wp_verify_nonce(wp_unslash($nonce), 'atelier_discipline_' . $term_id)) {
+    if (!current_user_can('edit_term', $term_id) || !is_string($nonce) || !wp_verify_nonce(wp_unslash($nonce), 'atelier_discipline_' . $term_id)) {
         return;
     }
-    update_term_meta($term_id, '_atelier_langues_name_en', wp_slash(sanitize_text_field(wp_unslash($value))));
+    $term = get_term($term_id, 'discipline');
+    if (!$term || is_wp_error($term)) { return; }
+    $packed = atelier_langues_native_save($term->name, get_term_meta($term_id, '_atelier_langues_name_en', true), wp_unslash($value), 'text');
+    if (null !== $packed) { update_term_meta($term_id, '_atelier_langues_name_en', wp_slash($packed)); }
+    $description = atelier_langues_native_save($term->description, get_term_meta($term_id, '_atelier_langues_description_en', true), isset($_POST['atelier_discipline_description']) ? wp_unslash($_POST['atelier_discipline_description']) : null, 'wysiwyg');
+    if (null !== $description) { update_term_meta($term_id, '_atelier_langues_description_en', wp_slash($description)); }
 });
