@@ -35,6 +35,11 @@ $page_class = $is_about ? 'about-page' : ($is_contact ? 'contact-page' : '');
             <?php if ($is_contact) : ?>
                 <?php $intro = atelier_artiste_field('contact_intro'); ?>
                 <p class="page-intro"><?php echo esc_html($intro ?: __('Pour une question sur une œuvre, une exposition ou une collaboration.', 'atelier-artiste')); ?></p>
+                <?php
+                $email = (string) get_post_meta((int) get_option('page_on_front'), 'contact_email', true);
+                if ($email) : ?>
+                    <p class="contact-links"><?php echo atelier_artiste_email_link($email); ?></p>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php the_content(); ?>

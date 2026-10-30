@@ -91,6 +91,24 @@ function atelier_artiste_submenu_toggle($output, $item, $depth, $args) {
 }
 add_filter('walker_nav_menu_start_el', 'atelier_artiste_submenu_toggle', 10, 4);
 
+// Garder le repère de rubrique sur les disciplines et les fiches des œuvres.
+add_filter('nav_menu_css_class', function ($classes, $item, $args) {
+    if ('principal' === ($args->theme_location ?? '') && 'page' === $item->object
+        && 'oeuvres' === get_post_field('post_name', $item->object_id)
+        && (is_tax('discipline') || is_singular('oeuvre'))) {
+        $classes[] = 'current-menu-ancestor';
+    }
+    return array_unique($classes);
+}, 10, 3);
+
+// L'arobase visible vient du CSS ; le lien reste utilisable sans JavaScript.
+function atelier_artiste_email_link($email) {
+    if (!is_email($email)) { return ''; }
+    list($name, $domain) = explode('@', $email, 2);
+    return '<a class="text-link contact-email" href="mailto:' . antispambot(esc_attr($email), 1) . '" aria-label="' . antispambot(esc_attr($email)) . '"><span aria-hidden="true">'
+        . esc_html($name) . '<span class="email-domain">' . esc_html($domain) . '</span></span></a>';
+}
+
 // L'ancienne liste générale n'est plus une destination du site.
 add_action('template_redirect', function () {
     if (is_page('oeuvres') && !is_preview()) {
